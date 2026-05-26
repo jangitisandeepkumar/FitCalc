@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitCalc Pro</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <div class="navbar">
+    <div class="logo">FitCalc Pro</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab(event,'nutrition')">Nutrition Calc</button>
+    <button class="tab-btn" onclick="showTab(event,'scanner')">Barcode Scanner</button>
+    <button class="tab-btn" onclick="showTab(event,'foodsearch')">🔍 Food Search</button>
+    <button class="tab-btn" onclick="showTab(event,'bmi')">BMI & Goals</button>
+    <button class="tab-btn" onclick="showTab(event,'tracker')">Daily Tracker</button>
+    <button class="tab-btn" onclick="showTab(event,'faq')">AI Assistant</button>
+  </div>
+
+  <!-- Nutrition Tab -->
+  <div id="nutrition" class="tab-content active">
+    <div class="card">
+      <h2>Daily Nutrition Calculator</h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 15px;">
+        🌐 Supports Any Language 
+      </p>
+      <div id="foodContainer"></div>
+      <div class="actions">
+        <button class="primary-btn" onclick="addFoodRow()">+ Add Food Item</button>
+        <button class="primary-btn" onclick="calculateNutrition()">Calculate Nutrition</button>
+      </div>
+      <div class="results">
+        <div class="result-box"><h3>Protein</h3><p id="protein">0 g</p></div>
+        <div class="result-box"><h3>Calories</h3><p id="calories">0 kcal</p></div>
+        <div class="result-box"><h3>Fats</h3><p id="fats">0 g</p></div>
+        <div class="result-box"><h3>Carbs</h3><p id="carbs">0 g</p></div>
+      </div>
+      <div style="max-width: 400px; margin: 30px auto 0;">
+        <canvas id="nutritionChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Other tabs remain same (Scanner, Search, BMI, etc.) -->
+
+<div class="container">
+
+  <div class="navbar">
+    <div class="logo">FitCalc Pro</div>
+  </div>
+
+  
+
+  <!-- Nutrition Tab -->
+  <div id="nutrition" class="tab-content active">
+    <div class="card">
+      <h2>Daily Nutrition Calculator</h2>
+      <p style="font-size:13px;color:#cbd5e1;margin-bottom:15px;">Supports Any Language + Spelling Mistakes (Japanese, Hindi, etc.)</p>
+      <div id="foodContainer"></div>
+      <div class="actions">
+        <button class="primary-btn" onclick="addFoodRow()">+ Add Food Item</button>
+        <button class="primary-btn" onclick="calculateNutrition()">Calculate Nutrition</button>
+      </div>
+      <div class="results">
+        <div class="result-box"><h3>Protein</h3><p id="protein">0 g</p></div>
+        <div class="result-box"><h3>Calories</h3><p id="calories">0 kcal</p></div>
+        <div class="result-box"><h3>Fats</h3><p id="fats">0 g</p></div>
+        <div class="result-box"><h3>Carbs</h3><p id="carbs">0 g</p></div>
+      </div>
+      <div style="max-width: 400px; margin: 30px auto 0;">
+        <canvas id="nutritionChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barcode Scanner Tab -->
+  <div id="scanner" class="tab-content">
+    <div class="card">
+      <h2>Real Barcode Scanner</h2>
+      <p style="color:#cbd5e1;margin-bottom:15px;">Scan any packaged food barcode</p>
+      <button class="primary-btn" onclick="startScanner()">Start Camera Scanner</button>
+      <div id="reader" style="margin:20px 0;"></div>
+      <div id="scanResults"></div>
+    </div>
+  </div>
+
+  <!-- Food Search Tab -->
+  <div id="foodsearch" class="tab-content">
+    <div class="card">
+      <h2>🔍 Food Search</h2>
+      <input type="text" id="foodSearchInput" placeholder="Search food (e.g. sushi, biryani, ラーメン...)" 
+             onkeyup="searchFoodNames()" style="width:100%;padding:14px;margin-bottom:15px;">
+      <div id="searchResults"></div>
+    </div>
+  </div>
+
+  <!-- BMI & Goals -->
+  <div id="bmi" class="tab-content">
+    <div class="card">
+      <h2>BMI Calculator</h2>
+      <div class="input-group-vertical">
+        <input type="number" id="height" placeholder="Height in cm">
+        <input type="number" id="weight" placeholder="Weight in kg">
+        <button class="primary-btn" onclick="calculateBMI()">Calculate BMI</button>
+      </div>
+      <div class="results"><div class="result-box" style="width:100%"><p id="bmiResult">Enter values</p></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Daily Goals</h2>
+      <div class="input-group-vertical">
+        <input type="number" id="userWeight" placeholder="Your Weight (kg)">
+        <select id="goal">
+          <option value="bulk">Bulk (Muscle Gain)</option>
+          <option value="maintain">Maintain</option>
+          <option value="fatloss">Fat Loss</option>
+        </select>
+        <button class="primary-btn" onclick="calculateProteinGoal()">Calculate Goals</button>
+      </div>
+      <div class="results"><div class="result-box" style="width:100%"><p id="goalOutput">Enter weight</p></div></div>
+    </div>
+  </div>
+
+  <!-- Daily Tracker -->
+  <div id="tracker" class="tab-content">
+    <div class="card">
+      <h2>Daily Tracker</h2>
+      <div class="input-group-vertical">
+        <input type="number" id="waterInput" placeholder="Water (Liters)" step="0.1">
+        <input type="number" id="caloriesInput" placeholder="Calories Consumed">
+        <input type="number" id="stepsInput" placeholder="Steps">
+        <input type="number" id="sleepInput" placeholder="Sleep (Hours)" step="0.5">
+        <button class="primary-btn" onclick="saveTrackerData()">Save Progress</button>
+      </div>
+      <canvas id="progressChart" style="margin-top:20px;"></canvas>
+    </div>
+  </div>
+
+  <!-- AI Assistant -->
+  <div id="faq" class="tab-content">
+    <div class="card">
+      <h2>AI Fitness Assistant</h2>
+      <div class="chat-box" id="chatBox">
+        <div class="chat-msg ai">Hello! Ask me anything about fitness, nutrition, or diet plans.</div>
+      </div>
+      <div class="input-group">
+        <input type="text" id="chatInput" placeholder="Ask a question..." onkeypress="if(event.key==='Enter') askAI()">
+        <button class="primary-btn" onclick="askAI()">Send</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
