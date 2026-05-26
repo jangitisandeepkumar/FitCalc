@@ -1,0 +1,343 @@
+// ====================== FITCALC PRO - FULL FEATURED SCRIPT ======================
+
+const GROQ_API_KEY = "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";
+
+let nutritionChart = null;
+let progressChart = null;
+let barcodeScanner = null;
+
+// ====================== TAB SWITCHING ======================
+function showTab(event, tabId) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  
+  document.getElementById(tabId).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ====================== SMART MULTILINGUAL AI NUTRITION ======================
+async function getFoodInfoFromAI(foodName) {
+  if (!foodName || foodName.trim().length < 1) return null;
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: `You are a world-class nutritionist and multilingual NLP expert.
+Support Japanese, Hindi, Chinese, Korean, etc.
+Return ONLY valid JSON:
+
+{
+  "correctedName": "string",
+  "protein": number,
+  "calories": number,
+  "fats": number,
+  "carbs": number,
+  "unit": "gram" | "piece" | "ml",
+  "defaultQty": number
+}
+
+- Fix spelling mistakes
+- Strong Japanese support (寿司, ラーメン, etc.)
+- Realistic values for all cuisines.`
+          },
+          { role: "user", content: `Food: ${foodName}` }
+        ],
+        temperature: 0.1,
+        max_tokens: 300
+      })
+    });
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    const jsonMatch = content.match(/\{[\s\S]*?\}/);
+    
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    return null;
+  } catch (error) {
+    console.error("AI Error:", error);
+    return null;
+  }
+}
+
+// ====================== TOAST ======================
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+    background:#22c55e;color:white;padding:12px 24px;border-radius:50px;font-size:14px;z-index:9999;`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2800);
+}
+
+// ====================== AUTO DETECT ======================
+async function autoDetectUnit(row) {
+  const foodInput = row.querySelector('.food-name');
+  const originalName = foodInput.value.trim();
+  
+  if (!originalName || originalName.length < 2) return;
+
+  foodInput.style.opacity = "0.6";
+  const info = await getFoodInfoFromAI(originalName);
+  foodInput.style.opacity = "1";
+
+  if (info && info.correctedName) {
+    if (info.correctedName.toLowerCase() !== originalName.toLowerCase()) {
+      foodInput.value = info.correctedName;
+      showToast(`✅ Corrected: "${originalName}" → "${info.correctedName}"`);
+    }
+
+    const unitSelect = row.querySelector('.food-unit');
+    const qtyInput = row.querySelector('.food-qty');
+
+    if (info.unit) unitSelect.value = info.unit;
+    if (info.defaultQty) qtyInput.value = info.defaultQty;
+  }
+}
+
+// ====================== NUTRITION CALCULATOR ======================
+function addFoodRow(name = '', qty = '', unit = 'gram') {
+  const row = document.createElement('div');
+  row.className = 'food-row';
+  row.innerHTML = `
+    <input type="text" class="food-name" value="${name}" 
+           placeholder="Enter food (any language)" 
+           onblur="autoDetectUnit(this.parentElement)">
+    <input type="number" class="food-qty" value="${qty}" placeholder="Qty">
+    <select class="food-unit">
+      <option value="gram" ${unit==='gram'?'selected':''}>g</option>
+      <option value="piece" ${unit==='piece'?'selected':''}>pc</option>
+      <option value="ml" ${unit==='ml'?'selected':''}>ml</option>
+    </select>
+    <button class="danger-btn" onclick="this.parentElement.remove()">✕</button>
+  `;
+  document.getElementById('foodContainer').appendChild(row);
+}
+
+async function calculateNutrition() {
+  let totalProtein = 0, totalCalories = 0, totalFats = 0, totalCarbs = 0;
+  const rows = document.querySelectorAll('.food-row');
+
+  for (let row of rows) {
+    const foodName = row.querySelector('.food-name').value.trim();
+    let qty = parseFloat(row.querySelector('.food-qty').value) || 0;
+    const unit = row.querySelector('.food-unit').value;
+
+    if (!foodName || qty <= 0) continue;
+
+    const info = await getFoodInfoFromAI(foodName);
+    if (info) {
+      let multiplier = (unit === 'gram' || unit === 'ml') ? qty / 100 : qty;
+      totalProtein += (info.protein || 0) * multiplier;
+      totalCalories += (info.calories || 0) * multiplier;
+      totalFats += (info.fats || 0) * multiplier;
+      totalCarbs += (info.carbs || 0) * multiplier;
+    }
+  }
+
+  document.getElementById('protein').textContent = totalProtein.toFixed(1) + ' g';
+  document.getElementById('calories').textContent = totalCalories.toFixed(0) + ' kcal';
+  document.getElementById('fats').textContent = totalFats.toFixed(1) + ' g';
+  document.getElementById('carbs').textContent = totalCarbs.toFixed(1) + ' g';
+
+  updateNutritionChart(totalProtein, totalCalories, totalFats, totalCarbs);
+}
+
+function updateNutritionChart(p, c, f, ca) {
+  const ctx = document.getElementById('nutritionChart');
+  if (nutritionChart) nutritionChart.destroy();
+
+  nutritionChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Protein', 'Calories', 'Fats', 'Carbs'],
+      datasets: [{ data: [p, c, f, ca], backgroundColor: ['#22c55e', '#06b6d4', '#f59e0b', '#ef4444'] }]
+    },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#fff' } } } }
+  });
+}
+
+// ====================== BARCODE SCANNER ======================
+function startScanner() {
+  const reader = document.getElementById('reader');
+  reader.innerHTML = '';
+
+  barcodeScanner = new Html5Qrcode("reader");
+
+  barcodeScanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    async (decodedText) => {
+      document.getElementById('scanResults').innerHTML = `<div class="food-item">✅ Scanned: ${decodedText}</div>`;
+      showToast("Barcode scanned! (Demo - Add OpenFoodFacts lookup here)");
+      barcodeScanner.stop();
+    },
+    (error) => { console.warn(error); }
+  ).catch(err => console.error(err));
+}
+
+// ====================== FOOD SEARCH ======================
+async function searchFoodNames() {
+  const query = document.getElementById('foodSearchInput').value.trim();
+  const resultsDiv = document.getElementById('searchResults');
+  resultsDiv.innerHTML = '';
+
+  if (query.length < 2) return;
+
+  const info = await getFoodInfoFromAI(query);
+  if (info) {
+    resultsDiv.innerHTML = `
+      <div class="food-item">
+        <strong>${info.correctedName || query}</strong><br>
+        Protein: ${info.protein}g | Calories: ${info.calories}kcal<br>
+        Fat: ${info.fats}g | Carbs: ${info.carbs}g
+      </div>`;
+  } else {
+    resultsDiv.innerHTML = `<div class="food-item">No results found.</div>`;
+  }
+}
+
+// ====================== BMI CALCULATOR ======================
+function calculateBMI() {
+  const height = parseFloat(document.getElementById('height').value);
+  const weight = parseFloat(document.getElementById('weight').value);
+  const resultEl = document.getElementById('bmiResult');
+
+  if (!height || !weight) {
+    resultEl.textContent = "Please enter height and weight";
+    return;
+  }
+
+  const bmi = (weight / ((height / 100) ** 2)).toFixed(1);
+  let status = "";
+
+  if (bmi < 18.5) status = "Underweight";
+  else if (bmi < 25) status = "Normal weight";
+  else if (bmi < 30) status = "Overweight";
+  else status = "Obese";
+
+  resultEl.innerHTML = `Your BMI: <strong>${bmi}</strong> (${status})`;
+}
+
+// ====================== DAILY GOALS ======================
+function calculateProteinGoal() {
+  const weight = parseFloat(document.getElementById('userWeight').value);
+  const goal = document.getElementById('goal').value;
+  const output = document.getElementById('goalOutput');
+
+  if (!weight) {
+    output.textContent = "Please enter your weight";
+    return;
+  }
+
+  let protein = weight * 2.0;
+  let calories = weight * 35;
+
+  if (goal === "bulk") { protein = weight * 2.2; calories = weight * 40; }
+  else if (goal === "fatloss") { protein = weight * 2.2; calories = weight * 30; }
+
+  output.innerHTML = `
+    Protein Goal: <strong>${protein.toFixed(0)}g</strong>/day<br>
+    Daily Calories: <strong>${calories.toFixed(0)} kcal</strong>
+  `;
+}
+
+// ====================== DAILY TRACKER ======================
+function saveTrackerData() {
+  const water = document.getElementById('waterInput').value || 0;
+  const calories = document.getElementById('caloriesInput').value || 0;
+  const steps = document.getElementById('stepsInput').value || 0;
+  const sleep = document.getElementById('sleepInput').value || 0;
+
+  showToast(`✅ Progress Saved! Water: ${water}L | Calories: ${calories}`);
+
+  // Simple progress chart
+  const ctx = document.getElementById('progressChart');
+  if (progressChart) progressChart.destroy();
+
+  progressChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Water (L)', 'Calories', 'Steps/1000', 'Sleep (hrs)'],
+      datasets: [{
+        label: 'Today',
+        data: [water, calories/100, steps/1000, sleep],
+        backgroundColor: '#22c55e'
+      }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+// ====================== AI FITNESS ASSISTANT ======================
+async function askAI() {
+  const input = document.getElementById('chatInput');
+  const chatBox = document.getElementById('chatBox');
+  const question = input.value.trim();
+
+  if (!question) return;
+
+  // User message
+  chatBox.innerHTML += `<div class="chat-msg user">${question}</div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+  input.value = '';
+
+  // AI thinking
+  const thinking = document.createElement('div');
+  thinking.className = 'chat-msg ai';
+  thinking.textContent = "Thinking...";
+  chatBox.appendChild(thinking);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: "You are a helpful, knowledgeable fitness and nutrition coach." },
+          { role: "user", content: question }
+        ],
+        temperature: 0.7,
+        max_tokens: 400
+      })
+    });
+
+    const data = await response.json();
+    const answer = data.choices[0].message.content;
+
+    thinking.remove();
+    chatBox.innerHTML += `<div class="chat-msg ai">${answer}</div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+  } catch (err) {
+    thinking.textContent = "Sorry, I couldn't get a response. Please try again.";
+  }
+}
+
+// ====================== INITIALIZE ======================
+window.addEventListener('load', () => {
+  document.getElementById('foodContainer').innerHTML = '';
+
+  addFoodRow('Chicken Biryani', '300', 'gram');
+  addFoodRow('Milk', '250', 'ml');
+  addFoodRow('अंडा', '2', 'piece');
+  addFoodRow('Dragon Fruit', '200', 'gram');
+  addFoodRow('Mango Lassi', '300', 'ml');
+  addFoodRow('寿司', '8', 'piece');
+  addFoodRow('ラーメン', '400', 'gram');
+
+  setTimeout(() => calculateNutrition(), 800);
+});
